@@ -10,3 +10,8 @@ Source/9_Resources/AssetBundles/AssetBundles
 Source/9_Resources/AssetBundles/AssetBundles.manifest
 *.DotSettings
 *.DotSettings.user
+
+*.local
+*.local.*
+
+*.user
