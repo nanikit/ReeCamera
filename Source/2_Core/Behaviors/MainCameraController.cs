@@ -11,7 +11,8 @@ namespace ReeCamera {
             MainCameraConfig config,
             GameObject cameraPrefab,
             IObservableValue<Rect> screenRectOV,
-            IObservableValue<bool> isVisibleOV
+            IObservableValue<bool> isVisibleOV,
+            SpoutSenderManager spoutManager
         ) {
             var go = Instantiate(cameraPrefab, parent, false);
             var camera = go.GetComponent<Camera>();
@@ -21,6 +22,7 @@ namespace ReeCamera {
             component.Construct(config, camera);
             component._screenRectOV = screenRectOV;
             component._isVisibleOV = isVisibleOV;
+            component._spoutManager = spoutManager;
             return component;
         }
 
@@ -30,14 +32,8 @@ namespace ReeCamera {
 
         private IObservableValue<Rect> _screenRectOV;
         private IObservableValue<bool> _isVisibleOV;
-        private TextureSpoutSender _spoutSender;
+        private SpoutSenderManager _spoutManager;
         private RawImage _screenImage;
-
-        private void Awake() {
-            _spoutSender = gameObject.AddComponent<TextureSpoutSender>();
-            _spoutSender.blitShader = BundleLoader.Materials.spoutBlitMaterial.shader;
-            _spoutSender.enabled = false;
-        }
 
         protected override void Start() {
             base.Start();
@@ -71,12 +67,14 @@ namespace ReeCamera {
             PluginState.ScreenResolution.RemoveStateListener(OnScreenResolutionChanged);
             PluginState.ScreenCanvasOV.RemoveStateListener(OnScreenCanvasChanged);
 
+            DisposeSpout();
             DisposeOutputTexture();
         }
 
         protected override void Update() {
             UpdateOutputTextureIfDirty();
             UpdateSpoutIfDirty();
+            SendSpoutTexture();
             base.Update();
         }
 
@@ -127,6 +125,9 @@ namespace ReeCamera {
 
         private bool _spoutTextureDirty;
         private bool _spoutInitialized;
+        private string _currentSpoutChannel;
+        private int _currentSpoutWidth;
+        private int _currentSpoutHeight;
 
         private void MarkSpoutDirty() {
             _spoutTextureDirty = true;
@@ -136,26 +137,38 @@ namespace ReeCamera {
             if (!_spoutTextureDirty) return;
             _spoutTextureDirty = false;
 
-            DisposeSpout();
-
             if (_spoutSettings.Enabled) {
-                InitSpout();
+                var width = Mathf.RoundToInt(_spoutSettings.Width * _qualitySettings.RenderScale);
+                var height = Mathf.RoundToInt(_spoutSettings.Height * _qualitySettings.RenderScale);
+                if (width < 1) width = 1;
+                if (height < 1) height = 1;
+
+                if (_spoutInitialized && _currentSpoutChannel != _spoutSettings.ChannelName) {
+                    DisposeSpout();
+                }
+
+                if (!_spoutInitialized) {
+                    _currentSpoutChannel = _spoutSettings.ChannelName;
+                    _currentSpoutWidth = width;
+                    _currentSpoutHeight = height;
+                    _spoutManager.Acquire(_currentSpoutChannel, width, height);
+                    _spoutInitialized = true;
+                }
+            } else {
+                DisposeSpout();
             }
         }
 
-        private void InitSpout() {
-            if (_spoutInitialized) return;
-            _spoutSender.channelName = _spoutSettings.ChannelName;
-            _spoutSender.sourceTexture = _outputTexture;
-            _spoutSender.enabled = true;
-            _spoutInitialized = true;
+        private void SendSpoutTexture() {
+            if (!_spoutInitialized || _outputTexture == null) return;
+            _spoutManager.SendTexture(_currentSpoutChannel, _outputTexture);
         }
 
         private void DisposeSpout() {
             if (!_spoutInitialized) return;
 
-            _spoutSender.sourceTexture = null;
-            _spoutSender.enabled = false;
+            _spoutManager.Release(_currentSpoutChannel);
+            _currentSpoutChannel = null;
             _spoutInitialized = false;
         }
 

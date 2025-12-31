@@ -1,4 +1,5 @@
 ﻿using JetBrains.Annotations;
+using ReeCamera.Spout;
 using Zenject;
 
 namespace ReeCamera {
@@ -7,6 +8,7 @@ namespace ReeCamera {
         public override void InstallBindings() {
             Container.Bind<PluginStateManager>().FromNewComponentOnNewGameObject().AsSingle().NonLazy();
             Container.Bind<InteropCamerasManager>().FromNewComponentOnNewGameObject().AsSingle().NonLazy();
+            Container.Bind<SpoutSenderManager>().FromNewComponentOnNewGameObject().AsSingle().NonLazy();
         }
     }
 }

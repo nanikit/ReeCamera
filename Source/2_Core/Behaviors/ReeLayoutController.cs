@@ -1,16 +1,17 @@
 ﻿using System.Collections.Generic;
+using ReeCamera.Spout;
 using UnityEngine;
 
 namespace ReeCamera {
     public class ReeLayoutController : MonoBehaviour {
         #region Instantiate
 
-        public static ReeLayoutController Instantiate(Transform parent, SceneLayoutConfig config) {
+        public static ReeLayoutController Instantiate(Transform parent, SceneLayoutConfig config, SpoutSenderManager spoutManager) {
             var go = new GameObject("ReeLayoutController");
             go.transform.SetParent(parent, false);
 
             var component = go.AddComponent<ReeLayoutController>();
-            component.Construct(config);
+            component.Construct(config, spoutManager);
             return component;
         }
 
@@ -19,9 +20,11 @@ namespace ReeCamera {
         #region Construct / Init / Dispose
 
         public SceneLayoutConfig Config { get; private set; }
+        private SpoutSenderManager _spoutManager;
 
-        private void Construct(SceneLayoutConfig config) {
+        private void Construct(SceneLayoutConfig config, SpoutSenderManager spoutManager) {
             Config = config;
+            _spoutManager = spoutManager;
         }
 
         private void Start() {
@@ -113,7 +116,8 @@ namespace ReeCamera {
                 transform, Config.MainCamera,
                 PluginState.CameraPrefabOV.Value,
                 Config.ScreenRectOV,
-                Config.IsVisibleOV
+                Config.IsVisibleOV,
+                _spoutManager
             );
         }
 
