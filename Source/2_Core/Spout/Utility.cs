@@ -41,6 +41,7 @@ namespace ReeCamera.Spout {
         }
 
         private static CommandBuffer _commandBuffer;
+        private static bool _isBatching;
 
         internal static void IssuePluginEvent(PluginEntry.Event pluginEvent, System.IntPtr ptr) {
             if (_commandBuffer == null) _commandBuffer = new CommandBuffer();
@@ -49,8 +50,24 @@ namespace ReeCamera.Spout {
                 PluginEntry.GetRenderEventFunc(), (int)pluginEvent, ptr
             );
 
-            Graphics.ExecuteCommandBuffer(_commandBuffer);
+            if (_isBatching) return;
 
+            Graphics.ExecuteCommandBuffer(_commandBuffer);
+            _commandBuffer.Clear();
+        }
+
+        internal static void BeginBatch() {
+            if (_commandBuffer == null) _commandBuffer = new CommandBuffer();
+            _isBatching = true;
+        }
+
+        internal static void ExecuteBatch() {
+            if (!_isBatching) return;
+
+            _isBatching = false;
+            if (_commandBuffer.sizeInBytes == 0) return;
+
+            Graphics.ExecuteCommandBuffer(_commandBuffer);
             _commandBuffer.Clear();
         }
     }

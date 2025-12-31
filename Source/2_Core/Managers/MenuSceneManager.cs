@@ -8,18 +8,21 @@ namespace ReeCamera {
         [Inject, UsedImplicitly]
         private MainCamera _mainCamera;
 
+        [Inject, UsedImplicitly]
+        private Spout.SpoutSenderManager _spoutManager;
+
         private void Awake() {
             switch (PluginState.LaunchTypeOV.Value) {
                 case LaunchType.VR: {
                     var config = MainPluginConfig.Instance.MainMenuConfigVR;
-                    ReeSceneController.Instantiate(transform, config);
+                    ReeSceneController.Instantiate(transform, config, _spoutManager);
                     break;
                 }
                 case LaunchType.FPFC:
                 default: {
                     var config = MainPluginConfig.Instance.MainMenuConfigFPFC;
                     FramerateManager.Instantiate(gameObject, config.FramerateSettingsOV);
-                    ReeSceneController.Instantiate(transform, config);
+                    ReeSceneController.Instantiate(transform, config, _spoutManager);
                     break;
                 }
             }
