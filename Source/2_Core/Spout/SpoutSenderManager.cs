@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using JetBrains.Annotations;
 using UnityEngine;
 
@@ -96,6 +97,7 @@ namespace ReeCamera.Spout {
             private Shader _blitShader;
             private bool _pluginInitialized;
             private bool _sharedTextureInitialized;
+            private EventWaitHandle _syncEvent;
 
             public void Initialize(string channelName, int width, int height, Shader blitShader) {
                 Width = width;
@@ -108,6 +110,7 @@ namespace ReeCamera.Spout {
                 _pluginInitialized = true;
                 InitializeSharedTexture();
                 InitializeBlitMaterial();
+                InitializeSyncEvent(channelName);
             }
 
             public void Reinitialize(string channelName, int width, int height) {
@@ -128,6 +131,8 @@ namespace ReeCamera.Spout {
                 Graphics.Blit(source, tempRT, _blitMaterial, 0);
                 Graphics.CopyTexture(tempRT, _sharedTexture);
                 RenderTexture.ReleaseTemporary(tempRT);
+
+                _syncEvent?.Set();
             }
 
             public void IssueUpdateEvent() {
@@ -158,6 +163,9 @@ namespace ReeCamera.Spout {
                     _pluginInitialized = false;
                 }
 
+                _syncEvent?.Dispose();
+                _syncEvent = null;
+
                 Util.Destroy(_sharedTexture);
                 _sharedTexture = null;
                 _sharedTextureInitialized = false;
@@ -184,6 +192,11 @@ namespace ReeCamera.Spout {
                 _blitMaterial = new Material(_blitShader) {
                     hideFlags = HideFlags.DontSave
                 };
+            }
+
+            private void InitializeSyncEvent(string channelName) {
+                var eventName = $"{channelName}_Sync_Event";
+                _syncEvent = new EventWaitHandle(false, EventResetMode.AutoReset, eventName);
             }
         }
 
