@@ -45,7 +45,7 @@ namespace ReeCamera {
         }
 
         private void LateUpdate() {
-            var fpvPose = ReeTransform.FromTransform(_playerTransforms._headTransform);
+            var fpvPose = new ReeTransform(_playerTransforms.headWorldPos, _playerTransforms.headWorldRot);
             PluginState.FirstPersonPoseOV.SetValue(fpvPose, this);
         }
     }

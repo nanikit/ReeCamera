@@ -43,8 +43,7 @@ namespace ReeCamera {
             BundleLoader.Initialize();
             zenjector.Install<OnAppInstaller>(Location.App);
             zenjector.Install<OnMenuInstaller>(Location.Menu);
-            zenjector.Install<OnGameInstaller>(Location.Singleplayer);
-            zenjector.Install<OnGameInstaller>(Location.MultiPlayer);
+            zenjector.Install<OnGameInstaller>(Location.GameCore);
         }
 
         #endregion
