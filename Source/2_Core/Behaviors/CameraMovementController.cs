@@ -103,7 +103,8 @@ namespace ReeCamera {
         }
 
         private void ApplyPose(in ReeTransform pose) {
-            transform.SetLocalPositionAndRotation(pose.Position, pose.Rotation);
+            var appliedPose = ReeTransform.GetChildTransform(GetMapMovementPose(), pose);
+            transform.SetLocalPositionAndRotation(appliedPose.Position, appliedPose.Rotation);
         }
 
         #endregion
@@ -119,22 +120,53 @@ namespace ReeCamera {
             _targetPose.Position += _tempSmoothPose.Rotation * localOffset.Position;
         }
 
+        private ReeTransform GetMapMovementPose() {
+            return PluginState.SceneTypeOV.Value == SceneType.Gameplay
+                ? PluginState.MapMovementPoseOV.Value
+                : ReeTransform.Identity;
+        }
+
+        private ReeTransform GetParentPose() {
+            return transform.parent == null
+                ? ReeTransform.Identity
+                : ReeTransform.FromTransform(transform.parent);
+        }
+
+        private ReeTransform GetEffectiveParentPose(in ReeTransform parentPose) {
+            return ReeTransform.GetChildTransform(parentPose, GetMapMovementPose());
+        }
+
+        private ReeTransform GetStaticTargetPose(in ReeTransform parentPose) {
+            if (PluginState.SceneTypeOV.Value != SceneType.Gameplay) {
+                return ReeTransform.Identity;
+            }
+
+            var playerPose = PluginState.PlayerPoseOV.Value;
+            return new ReeTransform(
+                parentPose.WorldToLocalPosition(playerPose.Position),
+                Quaternion.identity
+            );
+        }
+
+        private ReeTransform GetFollowTargetPose(in ReeTransform parentPose) {
+            var targetWorldPose = PluginState.FirstPersonPoseOV.Value;
+            return new ReeTransform(
+                parentPose.WorldToLocalPosition(targetWorldPose.Position),
+                parentPose.WorldToLocalRotation(targetWorldPose.Rotation)
+            );
+        }
+
         private void GetTargetPoses(out ReeTransform smoothPose, out ReeTransform localOffset) {
+            var parentPose = GetEffectiveParentPose(GetParentPose());
+
             switch (_movementConfig.MovementType) {
                 case MovementType.Static: {
-                    smoothPose = ReeTransform.Identity;
-                    localOffset = ReeTransform.Identity;
+                    smoothPose = GetStaticTargetPose(parentPose);
                     break;
                 }
                 case MovementType.FollowTarget:
                 default: {
-                    var parentPose = ReeTransform.FromTransform(transform.parent);
-                    var targetWorldPose = PluginState.FirstPersonPoseOV.Value;
-
-                    smoothPose = new ReeTransform(
-                        parentPose.WorldToLocalPosition(targetWorldPose.Position),
-                        parentPose.WorldToLocalRotation(targetWorldPose.Rotation)
-                    );
+                    smoothPose = GetFollowTargetPose(parentPose);
                     break;
                 }
             }
