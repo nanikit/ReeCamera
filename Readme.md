@@ -148,7 +148,7 @@ Used for both Main and Secondary cameras
     }
   },
   "MovementConfig": {
-    "MovementType": 0, // 0 = static position, 1 = following player's head
+    "MovementType": 0, // 0 = static rotation + gameplay player-position follow, 1 = following player's head
     "OffsetType" : 0, // 0 = Global, 1 = Local
     "PositionOffset": {
       "x": 0.0,

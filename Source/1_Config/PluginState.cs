@@ -6,6 +6,8 @@ namespace ReeCamera {
         public static readonly IObservableValue<LaunchType> LaunchTypeOV = new ObservableValue<LaunchType>(LaunchType.FPFC);
         public static readonly IObservableValue<SceneType> SceneTypeOV = new ObservableValue<SceneType>(SceneType.MainMenu);
         public static readonly IObservableValue<GameObject> CameraPrefabOV = new ObservableValue<GameObject>();
+        public static readonly IObservableValue<ReeTransform> MapMovementPoseOV = new ObservableValue<ReeTransform>(ReeTransform.Identity);
+        public static readonly IObservableValue<ReeTransform> PlayerPoseOV = new ObservableValue<ReeTransform>();
         public static readonly IObservableValue<ReeTransform> FirstPersonPoseOV = new ObservableValue<ReeTransform>();
         public static readonly IObservableValue<Resolution> ScreenResolution = new ObservableValue<Resolution>();
         public static readonly IObservableValue<Canvas> ScreenCanvasOV = new ObservableValue<Canvas>();
