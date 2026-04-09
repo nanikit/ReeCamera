@@ -15,3 +15,5 @@ Source/9_Resources/AssetBundles/AssetBundles.manifest
 *.local.*
 
 *.user
+
+AGENTS.override.md
