@@ -58,7 +58,7 @@ namespace ReeCamera {
                 compositionCameras.Add(CreateCompositionCamera(overlayCamera, screenWidth, screenHeight));
             }
 
-            var compositionMaterial = CreateCompositionMaterial(compositionCameras);
+            var compositionMaterial = compositionCameras.Count > 0 ? CreateCompositionMaterial(compositionCameras) : null;
             return new Composition(compositionCameras, compositionMaterial, screenWidth, screenHeight);
         }
 

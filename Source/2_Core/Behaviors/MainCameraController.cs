@@ -218,6 +218,20 @@ namespace ReeCamera {
 
         #endregion
 
+        #region Preview
+
+        private RenderTexture _previewTexture;
+
+        protected override RenderTexture PreviewTexture {
+            get {
+                if (Camera == null || _previewTexture == null) return base.PreviewTexture;
+                var composition = Camera.gameObject.GetComponent<CompositionImageEffect>();
+                return composition != null && composition.enabled ? _previewTexture : base.PreviewTexture;
+            }
+        }
+
+        #endregion
+
         #region Texture
 
         private RenderTexture _outputTexture;
@@ -262,6 +276,14 @@ namespace ReeCamera {
 
             _outputTexture.Create();
 
+            _previewTexture = new RenderTexture(textureWidth, textureHeight, 0, RenderTextureFormat.ARGB32);
+            _previewTexture.Create();
+
+            var composition = Camera.gameObject.GetComponent<CompositionImageEffect>();
+            if (composition != null) {
+                composition.PreviewTexture = _previewTexture;
+            }
+
             _screenImage.texture = _outputTexture;
             _screenImage.enabled = true;
             SetTargetTexture(_outputTexture);
@@ -271,6 +293,14 @@ namespace ReeCamera {
 
         private void DisposeOutputTexture() {
             if (!_outputTextureInitialized) return;
+
+            var composition = Camera.gameObject.GetComponent<CompositionImageEffect>();
+            if (composition != null) {
+                composition.PreviewTexture = null;
+            }
+
+            _previewTexture.Release();
+            _previewTexture = null;
 
             _outputTexture.Release();
             _outputTexture = null;

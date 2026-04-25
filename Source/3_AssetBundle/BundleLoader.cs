@@ -22,6 +22,13 @@ namespace ReeCamera {
             LoadAssets(localAssetBundle);
 
             localAssetBundle.Unload(false);
+
+            using var previewStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(
+                Plugin.ResourcesPath + ".AssetBundles.camera_preview");
+            var previewBundle = AssetBundle.LoadFromStream(previewStream)
+                ?? throw new Exception("Preview asset bundle load error!");
+            PreviewShader = previewBundle.LoadAsset<Shader>("CameraPreview");
+            previewBundle.Unload(false);
             _ready = true;
         }
 
@@ -32,6 +39,7 @@ namespace ReeCamera {
         public static BundledObjects Objects;
         public static BundledTextures Textures;
         public static BundledMaterials Materials;
+        public static Shader PreviewShader { get; private set; }
         public static CompositionManagerSO CompositionManager;
 
         private static void LoadAssets(AssetBundle assetBundle) {

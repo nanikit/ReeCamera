@@ -39,10 +39,21 @@ namespace ReeCamera {
 
         #endregion
 
+        #region Preview
+
+        public RenderTexture PreviewTexture { get; set; }
+
+        #endregion
+
         #region Events
 
         private void OnRenderImage(RenderTexture src, RenderTexture dest) {
             UpdateComposition(src.width, src.height);
+
+            if (PreviewTexture != null && PreviewTexture.IsCreated()) {
+                Graphics.Blit(src, PreviewTexture);
+            }
+
             _composition.Render(src, dest);
         }
 

@@ -75,6 +75,11 @@ namespace ReeCamera {
         }
 
         private void UpdateMovement() {
+            if (_isDragging) {
+                ApplyDragWorldPose();
+                return;
+            }
+
             if (_resetFrames > 0) {
                 ResetTarget();
                 ResetPhysicsPose();
@@ -105,6 +110,53 @@ namespace ReeCamera {
         private void ApplyPose(in ReeTransform pose) {
             var appliedPose = ReeTransform.GetChildTransform(GetMapMovementPose(), pose);
             transform.SetLocalPositionAndRotation(appliedPose.Position, appliedPose.Rotation);
+        }
+
+        #endregion
+
+        #region Drag
+
+        private bool _isDragging;
+        private Vector3 _dragWorldPosition;
+        private Quaternion _dragWorldRotation = Quaternion.identity;
+
+        public void SetDragWorldPose(in Vector3 worldPosition, in Quaternion worldRotation) {
+            _isDragging = true;
+            _dragWorldPosition = worldPosition;
+            _dragWorldRotation = worldRotation;
+        }
+
+        public void EndDrag() {
+            _isDragging = false;
+            _resetFrames = 5;
+        }
+
+        public void CommitDragDrop(in Vector3 worldPosition, in Quaternion worldRotation, object source) {
+            var parentPose = GetParentPose();
+            var effectiveParent = GetEffectiveParentPose(parentPose);
+            var dropLocal = CameraDragMath.WorldToLocal(effectiveParent, worldPosition, worldRotation);
+
+            var savedPosOff = _movementConfig.PositionOffset;
+            var savedRotOff = _movementConfig.RotationOffset;
+            _movementConfig.PositionOffset = Vector3.zero;
+            _movementConfig.RotationOffset = Vector3.zero;
+            GetTargetPoses(out var basePoseLocal, out _);
+            _movementConfig.PositionOffset = savedPosOff;
+            _movementConfig.RotationOffset = savedRotOff;
+
+            var newConfig = CameraDragMath.SolveOffsets(_movementConfig, basePoseLocal, dropLocal);
+            Config.MovementConfigOV.SetValue(newConfig, source);
+        }
+
+        private void ApplyDragWorldPose() {
+            var parent = transform.parent;
+            if (parent == null) {
+                transform.SetPositionAndRotation(_dragWorldPosition, _dragWorldRotation);
+            } else {
+                var localPos = parent.InverseTransformPoint(_dragWorldPosition);
+                var localRot = Quaternion.Inverse(parent.rotation) * _dragWorldRotation;
+                transform.SetLocalPositionAndRotation(localPos, localRot);
+            }
         }
 
         #endregion

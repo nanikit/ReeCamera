@@ -54,7 +54,7 @@ namespace ReeCamera {
             Layer14 = true;
             Layer15 = true;
             Layer16 = true;
-            Layer17 = true;
+            Layer17 = false;
             Layer18 = false;
             Layer19 = true;
             Layer20 = true;

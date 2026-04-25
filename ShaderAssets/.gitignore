@@ -1,0 +1,11 @@
+/Library/
+/Logs/
+/Temp/
+/UserSettings/
+/Build/
+/obj/
+/*.csproj
+/*.sln
+/ProjectSettings/*
+!/ProjectSettings/ProjectVersion.txt
+/Packages/packages-lock.json

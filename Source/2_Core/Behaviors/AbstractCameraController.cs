@@ -2,13 +2,14 @@
 using UnityEngine;
 
 namespace ReeCamera {
-    public abstract class AbstractCameraController<T> : MonoBehaviour, ICameraController where T : AbstractCameraConfig {
+    public abstract class AbstractCameraController<T> : MonoBehaviour, ICameraController, ICameraDragTarget where T : AbstractCameraConfig {
         #region Construct / Init / Dispose
 
         public T Config { get; private set; }
         public Camera Camera { get; private set; }
         public CameraMovementController CameraMovementController { get; private set; }
         public AutoCameraRegistrator AutoCameraRegistrator { get; private set; }
+        public CameraHandleController Handle { get; private set; }
 
         protected void Construct(T config, Camera cam) {
             Config = config;
@@ -18,15 +19,49 @@ namespace ReeCamera {
 
         protected virtual void Start() {
             AutoCameraRegistrator = gameObject.GetComponent<AutoCameraRegistrator>();
+            Handle = CameraHandleController.Attach(transform, this);
+            if (Handle != null) {
+                Handle.gameObject.SetActive(Config.MovementConfigOV.Value.MovementType == MovementType.Static);
+            }
             Config.NameOV.AddStateListener(OnNameChanged, this);
             Config.CameraSettingsOV.AddStateListener(OnCameraSettingChanged, this);
             Config.LayerFilterOV.AddStateListener(OnLayerFilterChanged, this);
+            Config.MovementConfigOV.AddStateListener(OnHandleVisibilityChanged, this);
         }
 
         protected virtual void OnDestroy() {
+            if (Handle != null) {
+                Destroy(Handle.gameObject);
+                Handle = null;
+            }
+
             Config.NameOV.RemoveStateListener(OnNameChanged);
             Config.CameraSettingsOV.RemoveStateListener(OnCameraSettingChanged);
             Config.LayerFilterOV.RemoveStateListener(OnLayerFilterChanged);
+            Config.MovementConfigOV.RemoveStateListener(OnHandleVisibilityChanged);
+        }
+
+        private void OnHandleVisibilityChanged(MovementConfig value, ObservableValueState state) {
+            if (Handle == null) return;
+            Handle.gameObject.SetActive(value.MovementType == MovementType.Static);
+        }
+
+        Transform ICameraDragTarget.CameraTransform => transform;
+        RenderTexture ICameraDragTarget.PreviewTexture => PreviewTexture;
+
+        protected virtual RenderTexture PreviewTexture => Camera != null ? Camera.targetTexture : null;
+
+        void ICameraDragTarget.OnDragBegin() {
+            CameraMovementController.SetDragWorldPose(transform.position, transform.rotation);
+        }
+
+        void ICameraDragTarget.OnDragUpdate(in Vector3 worldPosition, in Quaternion worldRotation) {
+            CameraMovementController.SetDragWorldPose(worldPosition, worldRotation);
+        }
+
+        void ICameraDragTarget.OnDragEnd(in Vector3 worldPosition, in Quaternion worldRotation) {
+            CameraMovementController.EndDrag();
+            CameraMovementController.CommitDragDrop(worldPosition, worldRotation, this);
         }
 
         protected virtual void Update() {

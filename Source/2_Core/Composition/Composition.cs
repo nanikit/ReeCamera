@@ -55,7 +55,7 @@ namespace ReeCamera {
         #region Dispose
 
         public void Dispose() {
-            Object.Destroy(_compositionMaterial);
+            if (_compositionMaterial != null) Object.Destroy(_compositionMaterial);
             foreach (var camera in _cameras) {
                 camera.Dispose();
             }
