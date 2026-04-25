@@ -1,9 +1,12 @@
-﻿using ReeCamera.Spout;
+using System.Linq;
+using ReeCamera.Spout;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace ReeCamera {
     public class MainCameraController : AbstractCameraController<MainCameraConfig> {
+        private static MainCameraController _designatedMainCamera;
+
         #region Instantiate
 
         public static MainCameraController Instantiate(
@@ -37,7 +40,8 @@ namespace ReeCamera {
 
         protected override void Start() {
             base.Start();
-            
+            UpdateMainCameraTag();
+
             var imageGo = new GameObject("ScreenImage");
             _screenImage = imageGo.AddComponent<RawImage>();
             _screenImage.material = BundleLoader.Materials.screenImageMaterial;
@@ -56,8 +60,9 @@ namespace ReeCamera {
         }
 
         protected override void OnDestroy() {
+            ReleaseMainCameraTag();
             base.OnDestroy();
-            
+
             Destroy(_screenImage.gameObject);
 
             _screenRectOV.RemoveStateListener(OnScreenRectChanged);
@@ -76,6 +81,45 @@ namespace ReeCamera {
             UpdateSpoutIfDirty();
             SendSpoutTexture();
             base.Update();
+        }
+
+        #endregion
+
+        #region MainCamera Tag
+
+        private void UpdateMainCameraTag() {
+            if (Camera == null) return;
+
+            var isFpfc = PluginState.LaunchTypeOV.Value == LaunchType.FPFC;
+            if (isFpfc && _designatedMainCamera == null) {
+                _designatedMainCamera = this;
+            }
+
+            Camera.tag = isFpfc && _designatedMainCamera == this ? "MainCamera" : "Untagged";
+        }
+
+        private void ReleaseMainCameraTag() {
+            if (_designatedMainCamera != this) {
+                if (Camera != null) Camera.tag = "Untagged";
+                return;
+            }
+
+            _designatedMainCamera = null;
+            if (Camera != null) Camera.tag = "Untagged";
+
+            if (PluginState.LaunchTypeOV.Value != LaunchType.FPFC) {
+                return;
+            }
+
+            var nextMainCamera = FindObjectsOfType<MainCameraController>()
+                .FirstOrDefault(controller => controller != this);
+
+            if (nextMainCamera == null) {
+                return;
+            }
+
+            _designatedMainCamera = nextMainCamera;
+            nextMainCamera.Camera.tag = "MainCamera";
         }
 
         #endregion
