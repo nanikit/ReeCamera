@@ -43,6 +43,7 @@ namespace ReeCamera {
         }
 
         private void Start() {
+            TransparentWallsPatch.MakeWallsOpaqueForMainCam();
             _beatmapObjectManager.noteWasCutEvent += HandleNoteWasCut;
         }
 

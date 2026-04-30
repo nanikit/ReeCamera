@@ -214,3 +214,22 @@ Used for both Main and Secondary cameras
   }
 }
 ```
+
+## Transparent Walls
+
+ReeCamera splits wall rendering into two layers so you can make walls transparent per-camera:
+
+| Layer           | Content                     | Default |
+| --------------- | --------------------------- | ------- |
+| 11 (Obstacle)   | Wall frame / glow outline   | `true`  |
+| 25 (FixMRAlpha) | Wall core (opaque interior) | `false` |
+
+Combine them in `LayerFilter` to get three visibility modes:
+
+| Mode                       | Layer11 | Layer25 |
+| -------------------------- | ------- | ------- |
+| Visible (opaque)           | `true`  | `true`  |
+| Transparent (outline only) | `true`  | `false` |
+| Hidden                     | `false` | `false` |
+
+The default `LayerFilter` ships with `Layer25 = false`, so walls appear **transparent** out of the box. Set `Layer25 = true` to make them fully opaque.
