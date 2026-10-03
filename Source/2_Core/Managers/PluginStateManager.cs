@@ -1,4 +1,4 @@
-﻿using BeatSaber.Settings;
+using BeatSaber.Settings;
 using JetBrains.Annotations;
 using UnityEngine;
 using Zenject;
@@ -17,6 +17,8 @@ namespace ReeCamera {
         [Inject, UsedImplicitly]
         private SettingsApplicatorSO _settingsApplicator;
 
+        private PresetFileWatcher _presetWatcher;
+
         private void Start() {
             var screenCanvas = gameObject.AddComponent<Canvas>();
             screenCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -24,20 +26,27 @@ namespace ReeCamera {
 
             BaseGameSettingOV.AddStateListener(OnBaseGameSettingsDidChange, this);
             PluginState.SceneTypeOV.AddStateListener(OnSceneTypeChanged, this);
+            _presetWatcher = PresetsStorage.Instance.WatchFiles();
         }
 
         private void OnDestroy() {
+            _presetWatcher?.Dispose();
             BaseGameSettingOV.RemoveStateListener(OnBaseGameSettingsDidChange);
             PluginState.SceneTypeOV.RemoveStateListener(OnSceneTypeChanged);
         }
 
         #endregion
 
-        #region Hotkeys
+        #region Reload
 
         private bool _refreshPressed;
 
         private void Update() {
+            if (_presetWatcher?.TryConsumeReloadRequest() == true) {
+                MainPluginConfig.MassReload();
+                Plugin.Notice("Preset file changes have been reloaded.");
+            }
+
             var pressed = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
                           && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
                           && Input.GetKeyDown(KeyCode.F1);

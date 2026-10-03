@@ -19,6 +19,8 @@ namespace ReeCamera {
 
         protected override string DirectoryPath { get; } = Path.Combine(Plugin.UserDataDirectory, "Presets");
 
+        internal PresetFileWatcher WatchFiles() => new PresetFileWatcher(DirectoryPath);
+
         public bool TryWritePreset(ScenePresetV1 preset, string fileName) {
             try {
                 var absolutePath = Path.Combine(DirectoryPath, $"{fileName}.json");
