@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace ReeCamera {
     public struct CameraSettings {
+        public HandleVisibility HandleVisibility;
         public bool IgnoreCameraUtils;
         public float FieldOfView;
         public float NearClipPlane;
@@ -13,6 +14,7 @@ namespace ReeCamera {
 
         [JsonConstructor]
         public CameraSettings(int _) {
+            HandleVisibility = HandleVisibility.HmdOnly;
             IgnoreCameraUtils = false;
             FieldOfView = 90.0f;
             NearClipPlane = 0.05f;

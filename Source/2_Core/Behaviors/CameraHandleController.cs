@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using CameraUtils.Core;
 using UnityEngine;
@@ -18,6 +19,7 @@ namespace ReeCamera {
     public class CameraHandleController : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler {
         // Resolve the installed CameraUtils enum; compiled constants otherwise retain the build version's layer.
         private static readonly int HmdOnlyLayer = (int)Enum.Parse(typeof(VisibilityLayer), nameof(VisibilityLayer.HmdOnly));
+        private static readonly int AlwaysVisibleLayer = (int)Enum.Parse(typeof(VisibilityLayer), nameof(VisibilityLayer.AlwaysVisible));
         private const float DesiredSubtendedAngleDeg = 15f;
         private const float MinPreviewHeight = 0.05f;
         private const float MaxPreviewHeight = 0.50f;
@@ -29,6 +31,34 @@ namespace ReeCamera {
         private static Material _previewMaterial;
 
         public ICameraDragTarget Target { get; private set; }
+
+        private static readonly HashSet<CameraHandleController> SharedHandles = new HashSet<CameraHandleController>();
+        internal static bool HasSharedHandles => SharedHandles.Count > 0;
+        internal static event Action SharedVisibilityChanged;
+
+        public void SetVisibility(HandleVisibility visibility) {
+            if (visibility != HandleVisibility.Hidden) {
+                var layer = visibility == HandleVisibility.HmdAndDesktop ? AlwaysVisibleLayer : HmdOnlyLayer;
+                SetLayerRecursively(transform, layer);
+            }
+            gameObject.SetActive(visibility != HandleVisibility.Hidden);
+            UpdateSharedVisibility();
+        }
+
+        private void OnEnable() => UpdateSharedVisibility();
+
+        private void OnDisable() => UpdateSharedVisibility();
+
+        private void UpdateSharedVisibility() {
+            var changed = isActiveAndEnabled && gameObject.layer == AlwaysVisibleLayer
+                ? SharedHandles.Add(this)
+                : SharedHandles.Remove(this);
+            if (changed) SharedVisibilityChanged?.Invoke();
+        }
+
+        // Only override the shared layer while a visible handle needs camera output.
+        internal static int GetOutputCullingMask(int mask, bool hasSharedHandles) =>
+            (mask & ~(1 << HmdOnlyLayer)) | (hasSharedHandles ? 1 << AlwaysVisibleLayer : 0);
 
         public static CameraHandleController Attach(Transform parent, ICameraDragTarget target) {
             var go = new GameObject("ReeCameraHandle");
@@ -59,7 +89,6 @@ namespace ReeCamera {
             _bodyRenderer.sharedMaterial = _bodyMaterial;
 
             BuildPreview();
-            SetLayerRecursively(transform, HmdOnlyLayer);
         }
 
         private static void SetLayerRecursively(Transform target, int layer) {
