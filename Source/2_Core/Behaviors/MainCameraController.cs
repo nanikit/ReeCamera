@@ -276,13 +276,7 @@ namespace ReeCamera {
 
             _outputTexture.Create();
 
-            _previewTexture = new RenderTexture(textureWidth, textureHeight, 0, RenderTextureFormat.ARGB32);
-            _previewTexture.Create();
-
-            var composition = Camera.gameObject.GetComponent<CompositionImageEffect>();
-            if (composition != null) {
-                composition.PreviewTexture = _previewTexture;
-            }
+            InitPreviewTexture(textureWidth, textureHeight);
 
             _screenImage.texture = _outputTexture;
             _screenImage.enabled = true;
@@ -294,6 +288,29 @@ namespace ReeCamera {
         private void DisposeOutputTexture() {
             if (!_outputTextureInitialized) return;
 
+            DisposePreviewTexture();
+
+            _outputTexture.Release();
+            _outputTexture = null;
+            _outputTextureInitialized = false;
+            _screenImage.texture = null;
+            _screenImage.enabled = false;
+        }
+
+        private void InitPreviewTexture(int width, int height) {
+            if (PluginState.LaunchTypeOV.Value != LaunchType.VR) return;
+
+            _previewTexture = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32);
+            _previewTexture.Create();
+            var composition = Camera.gameObject.GetComponent<CompositionImageEffect>();
+            if (composition != null) {
+                composition.PreviewTexture = _previewTexture;
+            }
+        }
+
+        private void DisposePreviewTexture() {
+            if (_previewTexture == null) return;
+
             var composition = Camera.gameObject.GetComponent<CompositionImageEffect>();
             if (composition != null) {
                 composition.PreviewTexture = null;
@@ -301,12 +318,6 @@ namespace ReeCamera {
 
             _previewTexture.Release();
             _previewTexture = null;
-
-            _outputTexture.Release();
-            _outputTexture = null;
-            _outputTextureInitialized = false;
-            _screenImage.texture = null;
-            _screenImage.enabled = false;
         }
 
         #endregion

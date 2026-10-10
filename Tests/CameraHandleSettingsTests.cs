@@ -5,24 +5,18 @@ using Xunit;
 namespace ReeCamera.Tests {
     public class CameraHandleSettingsTests {
         [Theory]
-        [InlineData(0, false)]
-        [InlineData(0, true)]
-        [InlineData(-1, false)]
-        [InlineData(-1, true)]
-        [InlineData((1 << 3) | (1 << 5) | (1 << 29), false)]
-        [InlineData((1 << 3) | (1 << 5) | (1 << 29), true)]
-        public void CameraOutputsPreservePresetLayersUntilAHandleIsSharedAndAlwaysExcludeHeadsetOnlyHandles(int mask, bool hasSharedHandles) {
-            var actual = CameraHandleController.GetOutputCullingMask(mask, hasSharedHandles);
+        [InlineData(0)]
+        [InlineData(-1)]
+        [InlineData((1 << 3) | (1 << 5) | (1 << 29))]
+        public void CameraOutputsExcludeHeadsetHandlesAndPreserveOtherPresetLayers(int mask) {
+            var actual = CameraHandleController.GetOutputCullingMask(mask);
             var headsetOnly = 1 << (int)VisibilityLayer.HmdOnly;
-            var shared = 1 << (int)VisibilityLayer.AlwaysVisible;
 
-            Assert.Equal(0, actual & headsetOnly);
-            Assert.Equal(hasSharedHandles ? shared : mask & shared, actual & shared);
-            Assert.Equal(mask & ~(headsetOnly | shared), actual & ~(headsetOnly | shared));
+            Assert.Equal(mask & ~headsetOnly, actual);
         }
 
         [Fact]
-        public void ExistingPresetsKeepHeadsetOnlyHandlesAndNamedChoicesSurviveSavingAndCopying() {
+        public void ExistingPresetsKeepDefaultPreviewsAndPerCameraChoicesSurviveSavingAndCopying() {
             var json = JObject.Parse(@"{
                 'FormatVersion': 1,
                 'Layouts': [{
@@ -37,26 +31,48 @@ namespace ReeCamera.Tests {
             AssertVisibility(original, "HmdOnly", "HmdOnly", "HmdOnly");
 
             var saved = new ScenePresetV1(original.LayoutConfigs).Serialize();
+            AssertPreviewSettings(saved, 0.15f, true, 0.15f, true);
+            ConfigureLegacySharedPreview(saved);
+            Assert.True(ScenePresetV1.TryDeserialize(saved, out var edited, out failure), failure);
+            AssertVisibility(edited, "HmdOnly", "Hidden", "HmdOnly");
+
+            var copied = CopyPresetCameras(edited);
+            Assert.True(ScenePresetV1.TryDeserialize(copied.Serialize(), out var reloaded, out failure), failure);
+            AssertVisibility(reloaded, "HmdOnly", "Hidden", "HmdOnly");
+            AssertPreviewSettings(new ScenePresetV1(reloaded.LayoutConfigs).Serialize(), 0.3f, false, 0.1f, true);
+            Assert.Equal(75f, reloaded.LayoutConfigs[0].MainCamera.CameraSettingsOV.Value.FieldOfView);
+        }
+
+        private static void ConfigureLegacySharedPreview(JObject saved) {
             var layoutJson = saved["Layouts"][0];
             layoutJson["MainCamera"]["CameraSettings"]["HandleVisibility"] = "HmdAndDesktop";
+            layoutJson["MainCamera"]["CameraSettings"]["PreviewViewportHeight"] = 0.3f;
+            layoutJson["MainCamera"]["CameraSettings"]["ShowPreviewBackground"] = false;
             layoutJson["SecondaryCameras"][0]["CameraSettings"]["HandleVisibility"] = "Hidden";
-            Assert.True(ScenePresetV1.TryDeserialize(saved, out var edited, out failure), failure);
-            AssertVisibility(edited, "HmdAndDesktop", "Hidden", "HmdOnly");
+            layoutJson["SecondaryCameras"][0]["CameraSettings"]["PreviewViewportHeight"] = 0.1f;
+        }
 
-            var layout = edited.LayoutConfigs[0];
+        private static ScenePresetV1 CopyPresetCameras(IScenePreset preset) {
+            var layout = preset.LayoutConfigs[0];
             var main = MainCameraConfig.Default;
             main.CopyFrom(layout.MainCamera);
             var hidden = new SecondaryCameraConfig();
             hidden.CopyFrom(layout.SecondaryCameras.Items[0]);
             var headsetOnly = new SecondaryCameraConfig();
             headsetOnly.CopyFrom(layout.SecondaryCameras.Items[1]);
-            var copied = new ScenePresetV1(new[] {
+            return new ScenePresetV1(new[] {
                 new SceneLayoutConfig(main, new[] { hidden, headsetOnly })
             });
+        }
 
-            Assert.True(ScenePresetV1.TryDeserialize(copied.Serialize(), out var reloaded, out failure), failure);
-            AssertVisibility(reloaded, "HmdAndDesktop", "Hidden", "HmdOnly");
-            Assert.Equal(75f, reloaded.LayoutConfigs[0].MainCamera.CameraSettingsOV.Value.FieldOfView);
+        private static void AssertPreviewSettings(JObject preset, float mainSize, bool mainBackground, float secondarySize, bool secondaryBackground) {
+            var layout = preset["Layouts"][0];
+            var main = layout["MainCamera"]["CameraSettings"];
+            var secondary = layout["SecondaryCameras"][0]["CameraSettings"];
+            Assert.Equal(mainSize, (float?)main["PreviewViewportHeight"]);
+            Assert.Equal(mainBackground, (bool?)main["ShowPreviewBackground"]);
+            Assert.Equal(secondarySize, (float?)secondary["PreviewViewportHeight"]);
+            Assert.Equal(secondaryBackground, (bool?)secondary["ShowPreviewBackground"]);
         }
 
         private static void AssertVisibility(IScenePreset preset, string main, string firstSecondary, string secondSecondary) {

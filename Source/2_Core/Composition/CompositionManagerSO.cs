@@ -147,6 +147,8 @@ namespace ReeCamera {
         private CommandBuffer CreateClearCommandBuffer(Material clearMaterialInstance) {
             var commandBuffer = new CommandBuffer();
             commandBuffer.DrawMesh(postProcessQuad, Matrix4x4.identity, clearMaterialInstance);
+            // The bundled clear shader writes depth; the copied background is not scene geometry.
+            commandBuffer.ClearRenderTarget(true, false, Color.clear);
             return commandBuffer;
         }
 

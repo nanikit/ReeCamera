@@ -10,6 +10,7 @@ namespace ReeCamera {
         public CameraMovementController CameraMovementController { get; private set; }
         public AutoCameraRegistrator AutoCameraRegistrator { get; private set; }
         public CameraHandleController Handle { get; private set; }
+        private CameraPreviewMask _previewMask;
 
         protected void Construct(T config, Camera cam) {
             Config = config;
@@ -19,8 +20,8 @@ namespace ReeCamera {
 
         protected virtual void Start() {
             AutoCameraRegistrator = gameObject.GetComponent<AutoCameraRegistrator>();
-            CameraHandleController.SharedVisibilityChanged += MarkCameraDirty;
             Handle = CameraHandleController.Attach(transform, this);
+            _previewMask = CameraPreviewMask.Attach(Camera, Handle);
             Config.NameOV.AddStateListener(OnNameChanged, this);
             Config.CameraSettingsOV.AddStateListener(OnCameraSettingChanged, this);
             Config.LayerFilterOV.AddStateListener(OnLayerFilterChanged, this);
@@ -28,7 +29,6 @@ namespace ReeCamera {
         }
 
         protected virtual void OnDestroy() {
-            CameraHandleController.SharedVisibilityChanged -= MarkCameraDirty;
             if (Handle != null) {
                 Destroy(Handle.gameObject);
                 Handle = null;
@@ -72,6 +72,7 @@ namespace ReeCamera {
         protected virtual void Update() {
             UpdateCameraIfDirty();
             UpdateFrustumIfDirty();
+            _previewMask.enabled = !_settings.ShowPreviewBackground && Handle.isActiveAndEnabled;
         }
 
         #endregion
@@ -92,6 +93,7 @@ namespace ReeCamera {
 
         private void OnCameraSettingChanged(CameraSettings value, ObservableValueState state) {
             _settings = value;
+            Handle.SetPreviewSettings(value.PreviewViewportHeight, value.ShowPreviewBackground);
             UpdateHandleVisibility();
             MarkCameraDirty();
         }
@@ -119,7 +121,7 @@ namespace ReeCamera {
                 AutoCameraRegistrator.enabled = !_settings.IgnoreCameraUtils;
             }
 
-            Camera.cullingMask = CameraHandleController.GetOutputCullingMask(_cullingMask, CameraHandleController.HasSharedHandles);
+            Camera.cullingMask = CameraHandleController.GetOutputCullingMask(_cullingMask);
             Camera.fieldOfView = _settings.FieldOfView;
             Camera.nearClipPlane = _settings.NearClipPlane;
             Camera.farClipPlane = _settings.FarClipPlane;

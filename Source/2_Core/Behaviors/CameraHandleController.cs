@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using CameraUtils.Core;
 using UnityEngine;
@@ -19,46 +18,35 @@ namespace ReeCamera {
     public class CameraHandleController : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler {
         // Resolve the installed CameraUtils enum; compiled constants otherwise retain the build version's layer.
         private static readonly int HmdOnlyLayer = (int)Enum.Parse(typeof(VisibilityLayer), nameof(VisibilityLayer.HmdOnly));
-        private static readonly int AlwaysVisibleLayer = (int)Enum.Parse(typeof(VisibilityLayer), nameof(VisibilityLayer.AlwaysVisible));
-        private const float DesiredSubtendedAngleDeg = 15f;
-        private const float MinPreviewHeight = 0.05f;
-        private const float MaxPreviewHeight = 0.50f;
         private const float BodyVerticalRadius = 0.035f;
         private const float PreviewGap = 0.01f;
+        private static readonly Vector3 PreviewAnchor = new Vector3(0f, BodyVerticalRadius + PreviewGap, -0.025f);
 
         private static Material _bodyMaterial;
         private static Material _bodyHoverMaterial;
-        private static Material _previewMaterial;
+        private Material _previewMaterial;
 
         public ICameraDragTarget Target { get; private set; }
 
-        private static readonly HashSet<CameraHandleController> SharedHandles = new HashSet<CameraHandleController>();
-        internal static bool HasSharedHandles => SharedHandles.Count > 0;
-        internal static event Action SharedVisibilityChanged;
+        public void SetPreviewSettings(float viewportHeight, bool showBackground) {
+            _previewViewportHeight = viewportHeight;
+            _previewMaterial.SetFloat("_ShowBackground", showBackground ? 1f : 0f);
+        }
+
+        public void SetPreviewMask(RenderTexture texture) {
+            _previewMaterial.SetTexture("_PreviewMask", texture);
+        }
+
+        private void OnDestroy() {
+            Destroy(_previewMaterial);
+        }
 
         public void SetVisibility(HandleVisibility visibility) {
-            if (visibility != HandleVisibility.Hidden) {
-                var layer = visibility == HandleVisibility.HmdAndDesktop ? AlwaysVisibleLayer : HmdOnlyLayer;
-                SetLayerRecursively(transform, layer);
-            }
-            gameObject.SetActive(visibility != HandleVisibility.Hidden);
-            UpdateSharedVisibility();
+            SetLayerRecursively(transform, HmdOnlyLayer);
+            gameObject.SetActive(visibility == HandleVisibility.HmdOnly && PluginState.LaunchTypeOV.Value == LaunchType.VR);
         }
 
-        private void OnEnable() => UpdateSharedVisibility();
-
-        private void OnDisable() => UpdateSharedVisibility();
-
-        private void UpdateSharedVisibility() {
-            var changed = isActiveAndEnabled && gameObject.layer == AlwaysVisibleLayer
-                ? SharedHandles.Add(this)
-                : SharedHandles.Remove(this);
-            if (changed) SharedVisibilityChanged?.Invoke();
-        }
-
-        // Only override the shared layer while a visible handle needs camera output.
-        internal static int GetOutputCullingMask(int mask, bool hasSharedHandles) =>
-            (mask & ~(1 << HmdOnlyLayer)) | (hasSharedHandles ? 1 << AlwaysVisibleLayer : 0);
+        internal static int GetOutputCullingMask(int mask) => mask & ~(1 << HmdOnlyLayer);
 
         public static CameraHandleController Attach(Transform parent, ICameraDragTarget target) {
             var go = new GameObject("ReeCameraHandle");
@@ -74,6 +62,8 @@ namespace ReeCamera {
         private RawImage _previewImage;
         private Canvas _previewCanvas;
         private RectTransform _previewRect;
+        private Camera _hmdCamera;
+        private float _previewViewportHeight = CameraSettings.Default.PreviewViewportHeight;
 
         private void Build() {
             EnsureSharedMaterials();
@@ -117,6 +107,7 @@ namespace ReeCamera {
             var imageGo = new GameObject("Image");
             imageGo.transform.SetParent(canvasGo.transform, false);
             _previewImage = imageGo.AddComponent<RawImage>();
+            _previewMaterial = new Material(BundleLoader.PreviewShader) { name = "ReeCameraPreviewMaterial" };
             _previewImage.material = _previewMaterial;
             var imageRect = _previewImage.rectTransform;
             imageRect.anchorMin = Vector2.zero;
@@ -134,10 +125,6 @@ namespace ReeCamera {
                 var shader = Resources.FindObjectsOfTypeAll<Shader>().First(value => value.name == "Custom/Glowing");
                 _bodyMaterial = new Material(shader) { color = new Color(1f, 0.95f, 0.55f) };
                 _bodyHoverMaterial = new Material(shader) { color = new Color(0.55f, 1f, 0.55f) };
-            }
-
-            if (_previewMaterial == null) {
-                _previewMaterial = new Material(BundleLoader.PreviewShader) { name = "ReeCameraPreviewMaterial" };
             }
         }
 
@@ -172,16 +159,22 @@ namespace ReeCamera {
         private void UpdatePreviewPosition(float previewHeight) {
             if (_previewRect == null) return;
 
-            var centerY = BodyVerticalRadius + PreviewGap + previewHeight * 0.5f;
-            _previewRect.localPosition = new Vector3(0f, centerY, -0.025f);
+            _previewRect.localPosition = PreviewAnchor + Vector3.up * (previewHeight * 0.5f);
         }
 
         private float CalculatePreviewHeight() {
-            var hmdPosition = PluginState.FirstPersonPoseOV.Value.Position;
-            var distance = Vector3.Distance(hmdPosition, transform.position);
-            var halfAngleRad = DesiredSubtendedAngleDeg * 0.5f * Mathf.Deg2Rad;
-            var height = 2f * distance * Mathf.Tan(halfAngleRad);
-            return Mathf.Clamp(height, MinPreviewHeight, MaxPreviewHeight);
+            // Camera.main can be a ReeCamera output; MainCamera identifies the actual player view.
+            if (_hmdCamera == null) _hmdCamera = FindObjectOfType<MainCamera>()?.camera;
+            if (_hmdCamera == null) return _previewRect.sizeDelta.y;
+
+            var projection = _hmdCamera.stereoEnabled
+                ? _hmdCamera.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left)
+                : _hmdCamera.projectionMatrix;
+            // The bottom edge stays fixed when height changes, avoiding feedback on tilted previews.
+            var anchor = transform.TransformPoint(PreviewAnchor);
+            // Radial distance is independent of head orientation; view-space depth shrinks on head turns.
+            var distance = Vector3.Distance(_hmdCamera.transform.position, anchor);
+            return 2f * distance / projection.m11 * Mathf.Max(0f, _previewViewportHeight);
         }
 
         public void OnPointerClick(PointerEventData eventData) {

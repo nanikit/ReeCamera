@@ -1,13 +1,15 @@
 Shader "Ree/CameraPreview" {
     Properties {
         [PerRendererData] _MainTex ("Camera image", 2D) = "white" {}
+        _ShowBackground ("Show background", Float) = 1
+        _PreviewMask ("Camera coverage", 2D) = "black" {}
     }
     SubShader {
         Tags { "Queue" = "Transparent" "RenderType" = "Transparent" }
         Cull Off
         ZWrite Off
         ZTest LEqual
-        Blend One Zero
+        Blend One OneMinusSrcAlpha, Zero OneMinusSrcAlpha
 
         Pass {
             CGPROGRAM
@@ -29,6 +31,8 @@ Shader "Ree/CameraPreview" {
             };
 
             sampler2D _MainTex;
+            sampler2D _PreviewMask;
+            fixed _ShowBackground;
 
             v2f vert(appdata input) {
                 v2f output;
@@ -41,8 +45,37 @@ Shader "Ree/CameraPreview" {
             }
 
             fixed4 frag(v2f input) : SV_Target {
-                // Both eyes display the same mono camera texture. Beat Saber uses output alpha for bloom.
-                return fixed4(tex2D(_MainTex, input.uv).rgb, 0);
+                fixed4 color = tex2D(_MainTex, input.uv);
+                fixed alpha = 1;
+                if (_ShowBackground < 0.5) {
+                    alpha = tex2D(_PreviewMask, input.uv).r;
+                }
+                // Separate alpha blending attenuates scene bloom without adding any.
+                return fixed4(color.rgb * alpha, alpha);
+            }
+            ENDCG
+        }
+
+        Pass {
+            ZTest Greater
+            Blend Off
+            CGPROGRAM
+            #pragma target 3.5
+            #pragma vertex coverageVertex
+            #pragma fragment coverageFragment
+            #include "UnityCG.cginc"
+
+            float4 coverageVertex(uint id : SV_VertexID) : SV_POSITION {
+                float2 uv = float2((id << 1) & 2, id & 2);
+                #if defined(UNITY_REVERSED_Z)
+                    return float4(uv * 2 - 1, 0, 1);
+                #else
+                    return float4(uv * 2 - 1, 1, 1);
+                #endif
+            }
+
+            fixed4 coverageFragment() : SV_Target {
+                return 1;
             }
             ENDCG
         }
