@@ -1,0 +1,7 @@
+[tasks.build]
+description = "Build the mod"
+run = "dotnet build Source/ReeCamera.csproj"
+
+[tasks.zip]
+description = "Build the release ZIP"
+run = "mise run build -- -c Release"
